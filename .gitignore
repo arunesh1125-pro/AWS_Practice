@@ -13,3 +13,8 @@ venv/
 *.csv
 datasets/
 AWS S3/
+
+*.pem
+aws-keys/
+
+*.uv.lock
