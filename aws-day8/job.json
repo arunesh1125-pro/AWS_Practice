@@ -1,0 +1,4 @@
+{
+    "model_name": "resnet_v2",
+    "threshold": 0.94
+}
