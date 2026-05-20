@@ -1,0 +1,11 @@
+{
+    "Rules": [{
+        "ID": "abort-incomplete-multipart",
+        "Status": "Enabled",
+        "AbortIncompleteMultipartUpload": {
+            "DaysAfterInitiation": 7
+        }
+    }]
+}
+
+# This cleans up any multipart upload that hasn't completed within 7 days = eliminating hidden storage costs.
