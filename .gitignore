@@ -17,6 +17,6 @@ AWS S3/
 *.pem
 aws-keys/
 
-*.zip
+`n*.pem
 aws-day9/
 aws-day10/
