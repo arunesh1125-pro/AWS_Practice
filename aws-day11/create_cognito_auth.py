@@ -3,7 +3,7 @@ import boto3
 apigw = boto3.client('apigateway', region_name = 'ap-south-1')
 
 # YOUR REAL VARIABLES
-TARGET_API_ID = 'ul6o4f6y6f'  # replace with your API ID
+TARGET_API_ID = 'h8um457iz3'  # replace with your API ID
 COGNITO_POOL_ARN = 'arn:aws:cognito-idp:ap-south-1:859977947607:userpool/ap-south-1_mQ4AGy6cI'
 
 print("Creating automated Cognito User Pool Authorizer...")
