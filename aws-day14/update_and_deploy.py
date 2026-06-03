@@ -13,22 +13,28 @@ role_name = "LambdaDDBStreamExecutionRole"
 function_name = "ProcessSensorStream"
 
 # 1. Update Existing DynamoDB Table to Enable Streams
-print(f"Enabling DynamoDB Streams on existing table '{table_name}'...")
+# 1. Update Existing DynamoDB Table to Enable Streams (With Safety Check)
+print(f"Checking DynamoDB Streams status on table '{table_name}'...")
 try:
-    dynamodb.update_table(
-        TableName=table_name,
-        StreamSpecification={
-            "StreamEnabled": True,
-            "StreamViewType": "NEW_AND_OLD_IMAGES",  # Captures both before & after images
-        },
-    )
-    print("Waiting 15 seconds for AWS to provision stream resources...")
-    time.sleep(15)
-
-    # Fetch the newly generated Stream ARN
     table_desc = dynamodb.describe_table(TableName=table_name)
-    stream_arn = table_desc["Table"]["LatestStreamArn"]
-    print(f"Stream is active! ARN: {stream_arn}")
+    stream_arn = table_desc["Table"].get("LatestStreamArn")
+
+    if stream_arn:
+        print(f"Stream is already active! Using existing ARN: {stream_arn}")
+    else:
+        print(f"Streams are disabled. Enabling now...")
+        dynamodb.update_table(
+            TableName=table_name,
+            StreamSpecification={
+                "StreamEnabled": True,
+                "StreamViewType": "NEW_AND_OLD_IMAGES",
+            },
+        )
+        print("Waiting 15 seconds for AWS to provision stream resources...")
+        time.sleep(15)
+        table_desc = dynamodb.describe_table(TableName=table_name)
+        stream_arn = table_desc["Table"]["LatestStreamArn"]
+        print(f"Stream is active! ARN: {stream_arn}")
 except ClientError as e:
     print(f"Failed to update table: {e.response['Error']['Message']}")
     exit()
@@ -39,7 +45,7 @@ trust_policy = {
     "Statement": [
         {
             "Effect": "Allow",
-            "Principal": {"Service": "://amazonaws.com"},
+            "Principal": {"Service": "lambda.amazonaws.com"},
             "Action": "sts:AssumeRole",
         }
     ],
@@ -75,7 +81,10 @@ try:
         Timeout=15,
     )
     print("Lambda function successfully deployed.")
-except awslambda.exceptions.ResourceInUseException:
+except (
+    awslambda.exceptions.ResourceInUseException,
+    awslambda.exceptions.ResourceConflictException,
+):
     awslambda.update_function_code(
         FunctionName=function_name, ZipFile=zip_bytes
     )
