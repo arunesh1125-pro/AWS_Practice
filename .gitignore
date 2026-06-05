@@ -20,3 +20,5 @@ aws-keys/
 `n*.pem
 aws-day9/
 aws-day10/
+
+package/
