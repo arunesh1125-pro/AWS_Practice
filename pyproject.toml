@@ -14,6 +14,7 @@ dependencies = [
     "numpy>=2.4.4",
     "pandas>=3.0.2",
     "pydantic>=2.13.4",
+    "python-jose[cryptography]>=3.5.0",
     "requests>=2.34.2",
     "sci-kit>=0.1.0",
     "scikit-learn>=1.8.0",
