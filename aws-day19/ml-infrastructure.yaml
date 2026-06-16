@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ML Platform Infrastructure — Production'
+
+# ── METADATA ──────────────────────────────────────────────────────
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: 'Database Configuration'
+        Parameters:
+          - DBInstanceClass
+          - DBName
+
+# ── PARAMETERS ────────────────────────────────────────────────────
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: 'Deployment environment'
+
+  LambdaMemorySize:
+    Type: Number
+    Default: 512
+    MinValue: 128
+    MaxValue: 10240
+    Description: 'Lambda memory in MB'
+
+  ModelBucketName:
+    Type: String
+    Description: 'S3 bucket base name for ML models'
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: 'RDS master password'
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    Description: 'Database instance class'
+
+  DBName:
+    Type: String
+    Default: mymlpool
+    Description: 'Database name identifier'
+
+# ── MAPPINGS ──────────────────────────────────────────────────────
+Mappings:
+  EnvironmentConfig:
+    dev:
+      InstanceType: t3.micro
+    staging:
+      InstanceType: t3.small
+    prod:
+      InstanceType: t3.medium
+
+# ── CONDITIONS ────────────────────────────────────────────────────
+Conditions:
+  IsProduction: !Equals [!Ref Environment, prod]
+
+# ── RESOURCES ─────────────────────────────────────────────────────
+Resources:
+  # 1. Encryption Key
+  MyKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub 'ML Platform key — ${Environment}'
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Id: 'kms-root-management-policy'
+        Statement:
+          - Sid: 'Enable IAM User Permissions'
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+
+  # 2. Managed S3 Storage Target
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      # Compiles the dynamic parameters into a single unified name string
+      BucketName: !Sub '${ModelBucketName}-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref MyKMSKey
+
+# ── OUTPUTS ───────────────────────────────────────────────────────
+Outputs:
+  BucketName:
+    Description: 'S3 bucket name generated for ML models'
+    Value: !Ref MyS3Bucket
+    Export:
+      Name: !Sub '${AWS::StackName}-ModelBucket'
+
+  KMSKeyArn:
+    Description: 'The Amazon Resource Name of the managed KMS key'
+    Value: !GetAtt MyKMSKey.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-KMSKeyArn'

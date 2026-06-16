@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Hands-on Lab: Mastering CloudFormation Intrinsic Functions'
+
+# ── PARAMETERS ────────────────────────────────────────────────────
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: 'Target application environment context'
+
+  LambdaMemorySize:
+    Type: Number
+    Default: 128
+    Description: 'Memory resource footprint allocation'
+
+# ── MAPPINGS ──────────────────────────────────────────────────────
+Mappings:
+  EnvironmentConfig:
+    dev:
+      InstanceType: t3.micro
+      BillingMode: PAY_PER_REQUEST
+    staging:
+      InstanceType: t3.small
+      BillingMode: PAY_PER_REQUEST
+    prod:
+      InstanceType: t3.medium
+      BillingMode: PROVISIONED
+
+# ── CONDITIONS ────────────────────────────────────────────────────
+Conditions:
+  IsProduction: !Equals [!Ref Environment, prod]
+
+# ── RESOURCES ─────────────────────────────────────────────────────
+Resources:
+  # 1. DynamoDB Table (Demonstrating Mappings & Conditions)
+  MyDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      # !Sub mixing literal strings with dynamic environment variables
+      TableName: !Sub 'DeviceReadings-${Environment}'
+      # !FindInMap looks up configuration matrix parameters dynamically
+      BillingMode: !FindInMap [EnvironmentConfig, !Ref Environment, BillingMode]
+      AttributeDefinitions:
+        - AttributeName: deviceId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: deviceId
+          KeyType: HASH
+      # !If toggles provisioned throughput rules only for production environments
+      ProvisionedThroughput: !If
+        - IsProduction
+        - ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        - !Ref AWS::NoValue # Pseudo Parameter that drops this entire block for dev/staging
+
+  # 2. IAM Role (Demonstrating GetAtt to extract precise resource properties)
+  MyLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'lambda-dynamo-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                # !GetAtt extracts the absolute resource ARN string from the table resource
+                Resource: !GetAtt MyDynamoDBTable.Arn
+
+  # 3. Inline Lambda Function (Demonstrating Ref on params/resources, and Sub mappings)
+  MyMLInferenceLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'ml-inference-engine-${Environment}'
+      # !GetAtt pulls down the structural identifier ARN from the IAM execution role
+      Role: !GetAtt MyLambdaRole.Arn
+      Runtime: python3.12
+      Handler: index.handler
+      MemorySize: !Ref LambdaMemorySize
+      Timeout: 15
+      Environment:
+        Variables:
+          # !Ref returns the literal Table Name string here
+          TABLE_NAME: !Ref MyDynamoDBTable
+          DEPLOYED_REGION: !Ref AWS::Region # Pseudo parameter insertion
+      Code:
+        ZipFile: |
+          import json
+          import os
+          def handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({
+                      'status': 'Online',
+                      'target_table': os.environ['TABLE_NAME'],
+                      'region': os.environ['DEPLOYED_REGION']
+                  })
+              }
+
+  # 4. SSM Parameter (Demonstrating complex Sub transformations with a custom Map)
+  MySSMParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/ml-platform/${Environment}/lambda-arn'
+      Type: String
+      Value: !Sub
+        - 'arn:aws:lambda:${Region}:${Account}:function:${FunctionName}'
+        - Region:       !Ref AWS::Region
+          Account:      !Ref AWS::AccountId
+          FunctionName: !Ref MyMLInferenceLambda
+
+# ── OUTPUTS ───────────────────────────────────────────────────────
+Outputs:
+  DatabaseTableIdentity:
+    Description: 'Table Name Reference'
+    Value: !Ref MyDynamoDBTable
+
+  StoredParameterPath:
+    Description: 'SSM Key Path'
+    Value: !Ref MySSMParameter
