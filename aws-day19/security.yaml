@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Nested Tier 2: Access Management and Keys'
+Parameters:
+  Environment:
+    Type: String
+  VpcId:
+    Type: String
+Resources:
+  NestedKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub 'ML Cryptographic Storage Vault — ${Environment}'
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+  NestedRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+Outputs:
+  KMSKeyArn:
+    Value: !GetAtt NestedKey.Arn
+  LambdaRoleArn:
+    Value: !GetAtt NestedRole.Arn

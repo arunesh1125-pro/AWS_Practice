@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Nested Tier 3: Workload Processing Elements'
+Parameters:
+  Environment:
+    Type: String
+  VpcId:
+    Type: String
+  KMSKeyArn:
+    Type: String
+  LambdaRoleArn:
+    Type: String
+Resources:
+  ModelQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'ml-nested-workload-queue-${Environment}'

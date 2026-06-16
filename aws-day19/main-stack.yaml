@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ML Platform Root Coordinator Stack'
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+Resources:
+  NetworkingStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      # FOOLPROOF RESOLUTION: Uses native string interpolation matching your unique bucket folder layout
+      TemplateURL: 'https://amazonaws.com859977947607-cf-nested-templates-arunesh/nested/networking.yaml'
+      Parameters:
+        Environment: !Ref Environment
+      TimeoutInMinutes: 15
+  SecurityStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkingStack
+    Properties:
+      TemplateURL: 'https://amazonaws.com859977947607-cf-nested-templates-arunesh/nested/security.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkingStack.Outputs.VpcId
+  ApplicationStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: [NetworkingStack, SecurityStack]
+    Properties:
+      TemplateURL: 'https://amazonaws.com859977947607-cf-nested-templates-arunesh/nested/application.yaml'
+      Parameters:
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkingStack.Outputs.VpcId
+        KMSKeyArn: !GetAtt SecurityStack.Outputs.KMSKeyArn
+        LambdaRoleArn: !GetAtt SecurityStack.Outputs.LambdaRoleArn
