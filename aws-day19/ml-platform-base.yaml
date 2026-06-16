@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Base Production ML Stack'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+  LambdaMemorySize:
+    Type: Number
+    Default: 512
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Default: 'InitialSecurePass123!'
+
+Resources:
+  DummyExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: 'ml-platform-prod-sample-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole

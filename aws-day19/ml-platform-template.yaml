@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Base Production ML Stack - Updated'
+
+Parameters:
+  Environment:
+    Type: String
+  LambdaMemorySize:
+    Type: Number
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+Resources:
+  DummyExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: 'ml-platform-prod-sample-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+
+  # NEWLY ADDED ASSET CAPTURED BY THE CHANGE SET PIPELINE
+  ModelInferenceAsyncQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: 'ml-async-inference-queue-prod'
+      VisibilityTimeout: 300
