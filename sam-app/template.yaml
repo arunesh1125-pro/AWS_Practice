@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Hands-on SAM CLI Local Testing and Shorthand Policies Architecture'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+
+Resources:
+  # 1. SAM Abstraction for DynamoDB Table
+  PredictionsTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: !Sub 'sam-predictions-${Environment}'
+
+  # 2. SAM High-Level Lambda + API Wrapper
+  MLInferenceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'ml-inference-cli-${Environment}'
+      Runtime: python3.12
+      CodeUri: src/inference/
+      Handler: handler.lambda_handler
+      Timeout: 15
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref PredictionsTable
+      
+      # DYNAMIC SHORTHAND SECURITY: No verbose JSON policy documents required!
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PredictionsTable
+        - S3ReadPolicy:
+            BucketName: 'ml-global-models-bucket-arunesh'
+
+      Events:
+        PredictAPI:
+          Type: Api
+          Properties:
+            Path: /predict
+            Method: post
+
+Outputs:
+  APIEndpoint:
+    Description: "API Gateway local execution map target"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}://"

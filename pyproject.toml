@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "amazon-dax-client>=2.0.6",
+    "aws-sam-cli>=1.162.1",
     "boto3>=1.43.5",
     "cryptography>=48.0.1",
     "fastapi>=0.136.1",
